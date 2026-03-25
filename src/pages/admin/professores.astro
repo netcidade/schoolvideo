@@ -2,7 +2,7 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { requireAdmin } from '../../lib/auth';
 import { createAdminClient, DB_ID, COLLECTIONS, BUCKET_ID } from '../../lib/appwrite';
-import { Query, ID, InputFile } from 'node-appwrite';
+import { Query, ID } from 'node-appwrite';
 
 const user = await requireAdmin(Astro.cookies);
 const { databases, storage } = createAdminClient();
@@ -28,10 +28,9 @@ if (Astro.request.method === 'POST') {
     let fotoId = form.get('foto_id_atual')?.toString() ?? undefined;
     const fotoFile = form.get('foto') as File | null;
     if (fotoFile && fotoFile.size > 0) {
-      const buffer = Buffer.from(await fotoFile.arrayBuffer());
       const uploaded = await storage.createFile(
         BUCKET_ID, ID.unique(),
-        InputFile.fromBuffer(buffer, fotoFile.name),
+        fotoFile
       );
       fotoId = uploaded.$id;
     }

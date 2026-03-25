@@ -13,8 +13,15 @@ const t = useTranslations(lang);
 let professores: any[] = [];
 let debugErrorMsg = '';
 try {
-  const { databases } = await createAdminClient();
-  const res = await databases.listDocuments(DB_ID, COLLECTIONS.PROFESSORES, [
+  // Puxa as variáveis de ambiente em runtime injetadas pelo Cloudflare
+  const cfEnv = Astro.locals.runtime?.env || {};
+  
+  const { databases } = await createAdminClient(cfEnv);
+  
+  // Pegando IDs dinamicamente do cfEnv
+  const dynamicDbId = cfEnv.APPWRITE_DATABASE_ID || DB_ID;
+
+  const res = await databases.listDocuments(dynamicDbId, COLLECTIONS.PROFESSORES, [
     Query.orderAsc('nome'), Query.limit(20),
   ]);
   professores = res.documents;

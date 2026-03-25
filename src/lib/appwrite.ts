@@ -4,18 +4,20 @@
  * NUNCA importar em componentes React client-side.
  */
 
-const endpoint  = import.meta.env.APPWRITE_ENDPOINT || process.env.APPWRITE_ENDPOINT;
-const projectId = import.meta.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT_ID;
-const apiKey    = import.meta.env.APPWRITE_API_KEY || process.env.APPWRITE_API_KEY;
-
-let __initError = '';
-if (!endpoint || !projectId || !apiKey) {
-  console.error('❌ Variáveis de ambiente Appwrite não configuradas no Cloudflare ou .env local');
-  __initError = `Missing Env. Endpoint: ${!!endpoint}, Project: ${!!projectId}, Key: ${!!apiKey}`;
+function getEnvVar(key: string, cfEnv: any = {}) {
+  return cfEnv[key] || import.meta.env[key] || (typeof process !== 'undefined' ? process.env[key] : undefined);
 }
 
 /** Cliente com API Key (acesso admin — server only) */
-async function createAdminClient() {
+async function createAdminClient(cfEnv: any = {}) {
+  const endpoint = getEnvVar('APPWRITE_ENDPOINT', cfEnv);
+  const projectId = getEnvVar('APPWRITE_PROJECT_ID', cfEnv);
+  const apiKey = getEnvVar('APPWRITE_API_KEY', cfEnv);
+
+  if (!endpoint || !projectId || !apiKey) {
+    throw new Error(`Vars missing. Endpoint: ${!!endpoint}, Project: ${!!projectId}, Key: ${!!apiKey}`);
+  }
+
   const { Client, Databases, Users, Storage, Account } = await import('node-appwrite');
   const client = new Client()
     .setEndpoint(endpoint as string)
@@ -31,7 +33,10 @@ async function createAdminClient() {
 }
 
 /** Cliente sem API Key (acesso como usuário via sessão) */
-async function createSessionClient(sessionToken: string) {
+async function createSessionClient(sessionToken: string, cfEnv: any = {}) {
+  const endpoint = getEnvVar('APPWRITE_ENDPOINT', cfEnv);
+  const projectId = getEnvVar('APPWRITE_PROJECT_ID', cfEnv);
+
   const { Client, Databases, Account } = await import('node-appwrite');
   const client = new Client()
     .setEndpoint(endpoint as string)

@@ -1,0 +1,61 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import { getSession, login } from '../lib/auth';
+import { getLang, useTranslations } from '../lib/i18n';
+
+// Redirecionar se já logado
+const user = await getSession(Astro.cookies);
+if (user) return Astro.redirect('/');
+
+const lang = getLang(Astro.cookies, Astro.url);
+const t = useTranslations(lang);
+
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const email = form.get('email')?.toString() ?? '';
+  const senha  = form.get('senha')?.toString()  ?? '';
+  const result = await login(email, senha, Astro.cookies);
+  if (result.ok) {
+    const redirect = new URL(Astro.request.url).searchParams.get('redirect') ?? `/`;
+    return Astro.redirect(redirect);
+  }
+  error = lang === 'en' ? 'Invalid email or password.' : 'E-mail ou senha inválidos.';
+}
+---
+<MainLayout title={t('login')}>
+  <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:2rem;">
+    <div style="width:100%; max-width:420px;">
+      <div style="text-align:center; margin-bottom:2.5rem;">
+        <div class="section-label">{t('welcome_back')}</div>
+        <h1 style="font-family:'Cormorant Garamond',serif; font-size:2.5rem; font-weight:300; color:var(--cream);">
+          {t('login')}
+        </h1>
+      </div>
+
+      {error && <div class="alert alert-error">{error}</div>}
+
+      <form method="POST" style="display:flex; flex-direction:column; gap:1rem;">
+        <div class="form-group">
+          <label class="form-label" for="email">{t('email')}</label>
+          <input class="form-input" type="email" id="email" name="email" required
+                 placeholder="seu@email.com" autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="senha">{t('password')}</label>
+          <input class="form-input" type="password" id="senha" name="senha" required
+                 placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn-primary" style="justify-content:center; margin-top:0.5rem;">
+          {t('login')}
+        </button>
+      </form>
+
+      <p style="text-align:center; margin-top:1.5rem; font-size:0.85rem; color:var(--muted);">
+        {t('no_account')}
+        <a href={`/registro?lang=${lang}`} style="color:var(--gold); text-decoration:none;">{t('create_account')}</a>
+      </p>
+    </div>
+  </div>
+</MainLayout>

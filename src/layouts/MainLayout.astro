@@ -1,0 +1,32 @@
+---
+import '../styles/global.css'; // Vite cache trigger
+import '../styles/main.css';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import type { SessionUser } from '../lib/auth';
+
+interface Props {
+  title: string;
+  description?: string;
+  user?: SessionUser | null;
+}
+
+const { title, description = 'Escola em Vídeo — Aprenda a dançar com os melhores mestres', user } = Astro.props;
+---
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title} | Escola em Vídeo</title>
+  <meta name="description" content={description} />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+</head>
+<body>
+  <Header user={user} />
+  <main>
+    <slot />
+  </main>
+  <Footer />
+</body>
+</html>

@@ -1,0 +1,83 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import { getSession } from '../lib/auth';
+import { createAdminClient } from '../lib/appwrite';
+import { ID } from 'node-appwrite';
+import { getLang, useTranslations } from '../lib/i18n';
+
+const user = await getSession(Astro.cookies);
+if (user) return Astro.redirect('/');
+
+const lang = getLang(Astro.cookies, Astro.url);
+const t = useTranslations(lang);
+
+let error = '';
+let success = false;
+
+if (Astro.request.method === 'POST') {
+  const form  = await Astro.request.formData();
+  const nome  = form.get('nome')?.toString() ?? '';
+  const email = form.get('email')?.toString() ?? '';
+  const senha = form.get('senha')?.toString() ?? '';
+
+  if (senha.length < 8) {
+    error = lang === 'en' ? 'Password must have at least 8 characters.' : 'A senha deve ter pelo menos 8 caracteres.';
+  } else {
+    try {
+      const { users } = createAdminClient();
+      await users.create(ID.unique(), email, undefined, senha, nome);
+      success = true;
+    } catch (e: any) {
+      if (e?.message?.includes('already exists')) {
+        error = lang === 'en' ? 'Email already registered.' : 'Este e-mail já está cadastrado.';
+      } else {
+        error = lang === 'en' ? 'Error creating account.' : 'Erro ao criar conta. Tente novamente.';
+      }
+    }
+  }
+}
+---
+<MainLayout title={t('create_account')}>
+  <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:2rem;">
+    <div style="width:100%; max-width:420px;">
+      <div style="text-align:center; margin-bottom:2.5rem;">
+        <div class="section-label">{t('join_us')}</div>
+        <h1 style="font-family:'Cormorant Garamond',serif; font-size:2.5rem; font-weight:300; color:var(--cream);">
+          {t('create_account')}
+        </h1>
+      </div>
+
+      {error && <div class="alert alert-error">{error}</div>}
+      {success && (
+        <div class="alert alert-success">
+          ✅ <a href={`/login?lang=${lang}`} style="color:var(--gold);">{t('login')}</a>.
+        </div>
+      )}
+
+      {!success && (
+        <form method="POST" style="display:flex; flex-direction:column; gap:1rem;">
+          <div class="form-group">
+            <label class="form-label" for="nome">{t('full_name')}</label>
+            <input class="form-input" type="text" id="nome" name="nome" required placeholder={t('full_name')} />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="email">{t('email')}</label>
+            <input class="form-input" type="email" id="email" name="email" required placeholder="seu@email.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="senha">{t('pass_min')}</label>
+            <input class="form-input" type="password" id="senha" name="senha" required minlength={8} placeholder="••••••••" />
+          </div>
+          <button type="submit" class="btn-primary" style="justify-content:center; margin-top:0.5rem;">
+            {t('create_account')}
+          </button>
+        </form>
+      )}
+
+      <p style="text-align:center; margin-top:1.5rem; font-size:0.85rem; color:var(--muted);">
+        {t('has_account')}
+        <a href={`/login?lang=${lang}`} style="color:var(--gold); text-decoration:none;">{t('login')}</a>
+      </p>
+    </div>
+  </div>
+</MainLayout>

@@ -1,0 +1,173 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { requireAdmin } from '../../lib/auth';
+import { createAdminClient, DB_ID, COLLECTIONS } from '../../lib/appwrite';
+import { Query, ID } from 'node-appwrite';
+
+const user = await requireAdmin(Astro.cookies);
+const { databases } = createAdminClient();
+
+let msg = '';
+
+// ── PROCESSAR ACTIONS ──────────────────────────────────────
+if (Astro.request.method === 'POST') {
+  const form   = await Astro.request.formData();
+  const action = form.get('action')?.toString();
+
+  const getData = () => ({
+    professor_id:  form.get('professor_id')?.toString()  ?? '',
+    titulo:        form.get('titulo')?.toString()         ?? '',
+    descricao:     form.get('descricao')?.toString()      ?? '',
+    descricao_en:  form.get('descricao_en')?.toString()   ?? '',
+    duracao:       form.get('duracao')?.toString()        ?? '',
+    preco:         parseFloat(form.get('preco')?.toString().replace(',','.') ?? '0'),
+    is_preview:    form.get('is_preview') === '1',
+    video_url:     form.get('video_url')?.toString()      ?? '',
+    provider:      form.get('provider')?.toString()       ?? 'vimeo',
+  });
+
+  if (action === 'add') {
+    await databases.createDocument(DB_ID, COLLECTIONS.VIDEOS, ID.unique(), getData());
+    msg = 'Vídeo adicionado!';
+  } else if (action === 'edit') {
+    await databases.updateDocument(DB_ID, COLLECTIONS.VIDEOS, form.get('id')!.toString(), getData());
+    msg = 'Vídeo atualizado!';
+  } else if (action === 'delete') {
+    await databases.deleteDocument(DB_ID, COLLECTIONS.VIDEOS, form.get('id')!.toString());
+    msg = 'Vídeo removido.';
+  }
+  return Astro.redirect('/admin/videos?ok=1');
+}
+
+if (Astro.url.searchParams.get('ok')) msg = 'Operação realizada com sucesso!';
+
+const professores = (await databases.listDocuments(DB_ID, COLLECTIONS.PROFESSORES, [Query.orderAsc('nome'), Query.limit(100)])).documents;
+const filtroProf  = Astro.url.searchParams.get('prof') ?? '';
+const filters     = filtroProf ? [Query.equal('professor_id', filtroProf)] : [];
+const videos      = (await databases.listDocuments(DB_ID, COLLECTIONS.VIDEOS, [...filters, Query.orderAsc('$createdAt'), Query.limit(200)])).documents;
+
+let editVideo: any = null;
+const editId = Astro.url.searchParams.get('edit');
+if (editId) editVideo = await databases.getDocument(DB_ID, COLLECTIONS.VIDEOS, editId);
+---
+<AdminLayout title={editVideo ? 'Editar Vídeo' : 'Vídeos'} user={user} currentPage="/admin/videos">
+  {msg && <div class="alert alert-success">✅ {msg}</div>}
+
+  {!editVideo && (
+    <button onclick="toggleForm()" class="btn btn-gold" style="margin-bottom:1.5rem;">
+      ➕ Novo Vídeo
+    </button>
+  )}
+
+  <!-- FORMULÁRIO -->
+  <div class="form-card" id="formVideo" style={`display:${editVideo ? 'block' : 'none'};`}>
+    <div class="form-card-title">{editVideo ? '✏️ Editar Vídeo' : '➕ Novo Vídeo'}</div>
+    <form method="POST">
+      <input type="hidden" name="action" value={editVideo ? 'edit' : 'add'} />
+      {editVideo && <input type="hidden" name="id" value={editVideo.$id} />}
+      <div class="form-grid">
+        <div class="form-group full">
+          <label class="form-label">Título *</label>
+          <input class="form-input" type="text" name="titulo" required value={editVideo?.titulo ?? ''} />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Professor *</label>
+          <select class="form-select" name="professor_id" required>
+            {professores.map(p => (
+              <option value={p.$id} selected={editVideo?.professor_id === p.$id}>{p.nome}</option>
+            ))}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Plataforma</label>
+          <select class="form-select" name="provider">
+            <option value="vimeo"   selected={editVideo?.provider === 'vimeo'}>Vimeo</option>
+            <option value="youtube" selected={editVideo?.provider === 'youtube'}>YouTube</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">ID do Vídeo *</label>
+          <input class="form-input" type="text" name="video_url" required value={editVideo?.video_url ?? ''} placeholder="76979871 (Vimeo) ou dQw4w9WgXcQ (YT)" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Duração</label>
+          <input class="form-input" type="text" name="duracao" value={editVideo?.duracao ?? ''} placeholder="45min ou 1h 20min" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Preço (USD)</label>
+          <input class="form-input" type="text" name="preco" required value={editVideo?.preco?.toFixed(2) ?? '0.00'} placeholder="0.00 = grátis" />
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Descrição (PT)</label>
+          <textarea class="form-textarea" name="descricao" rows={2}>{editVideo?.descricao ?? ''}</textarea>
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Descrição (EN)</label>
+          <textarea class="form-textarea" name="descricao_en" rows={2}>{editVideo?.descricao_en ?? ''}</textarea>
+        </div>
+        <div class="form-group full" style="flex-direction:row;align-items:center;gap:.75rem;">
+          <input type="checkbox" id="is_preview" name="is_preview" value="1" checked={editVideo?.is_preview} style="accent-color:var(--gold);width:16px;height:16px;" />
+          <label for="is_preview" class="form-label" style="margin:0;">Preview gratuito (disponível sem compra)</label>
+        </div>
+      </div>
+      <div style="display:flex;gap:.75rem;margin-top:1.25rem;">
+        <button type="submit" class="btn btn-gold">{editVideo ? 'Salvar' : 'Adicionar Vídeo'}</button>
+        {editVideo && <a href="/admin/videos" class="btn btn-ghost">Cancelar</a>}
+      </div>
+    </form>
+  </div>
+
+  <!-- FILTRO + TABELA -->
+  <div class="admin-table-wrap">
+    <div class="admin-table-header">
+      <span class="admin-table-title">Vídeos</span>
+      <form method="GET" style="display:flex;gap:.5rem;align-items:center;">
+        <select class="form-select" name="prof" onchange="this.form.submit()" style="padding:4px 8px;font-size:.8rem;">
+          <option value="">Todos os professores</option>
+          {professores.map(p => <option value={p.$id} selected={filtroProf === p.$id}>{p.nome}</option>)}
+        </select>
+      </form>
+    </div>
+    {videos.length === 0 ? (
+      <div style="padding:2rem;text-align:center;color:var(--muted);">Nenhum vídeo cadastrado.</div>
+    ) : (
+      <table>
+        <thead><tr><th>Título</th><th>Professor</th><th>Plataforma</th><th>Duração</th><th>Preço</th><th>Preview</th><th>Ações</th></tr></thead>
+        <tbody>
+          {videos.map(v => {
+            const prof = professores.find(p => p.$id === v.professor_id);
+            return (
+              <tr>
+                <td style="max-width:200px;">
+                  <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{v.titulo}</div>
+                  <div style="font-size:.72rem;color:var(--muted);">ID: {v.video_url}</div>
+                </td>
+                <td style="color:var(--muted);">{prof?.nome ?? '—'}</td>
+                <td><span class="badge" style="background:rgba(255,255,255,.08);color:var(--muted);">{v.provider}</span></td>
+                <td style="color:var(--muted);">{v.duracao || '—'}</td>
+                <td style="color:var(--gold);font-weight:600;">{v.preco > 0 ? `$${v.preco.toFixed(2)}` : 'Grátis'}</td>
+                <td>{v.is_preview ? '✅' : '—'}</td>
+                <td>
+                  <div style="display:flex;gap:.5rem;">
+                    <a href={`/admin/videos?edit=${v.$id}`} class="btn btn-ghost btn-sm">Editar</a>
+                    <form method="POST" onsubmit="return confirm('Remover este vídeo?')">
+                      <input type="hidden" name="action" value="delete" />
+                      <input type="hidden" name="id" value={v.$id} />
+                      <button type="submit" class="btn btn-danger btn-sm">Remover</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    )}
+  </div>
+</AdminLayout>
+<script>
+function toggleForm() {
+  const f = document.getElementById('formVideo')!;
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+</script>

@@ -1,0 +1,240 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import { getSession } from '../lib/auth';
+import { createAdminClient, DB_ID, COLLECTIONS } from '../lib/appwrite';
+import { Query } from 'node-appwrite';
+import { getLang, useTranslations } from '../lib/i18n';
+
+const user = await getSession(Astro.cookies);
+const lang = getLang(Astro.cookies, Astro.url);
+const t = useTranslations(lang);
+
+// Buscar professores no Appwrite
+let professores: any[] = [];
+try {
+  const { databases } = createAdminClient();
+  const res = await databases.listDocuments(DB_ID, COLLECTIONS.PROFESSORES, [
+    Query.orderAsc('nome'), Query.limit(20),
+  ]);
+  professores = res.documents;
+} catch (e) {
+  console.error('Erro ao buscar professores:', e);
+}
+---
+<MainLayout title={t('catalog')} user={user}>
+
+  <!-- GLOBAL FIXED BACKGROUND -->
+  <div class="hero-bg" id="hero-bg" style="background-image: url('/assets/img/hero.webp'); position: fixed; inset: 0; z-index: -2; background-size: cover; background-position: center top;"></div>
+  <div class="hero-overlay" id="hero-overlay" style="position: fixed; inset: 0; z-index: -1; background: linear-gradient(to bottom, rgba(8, 8, 9, 0.2) 0%, rgba(8, 8, 9, 0.8) 100%);"></div>
+
+  <!-- HERO -->
+  <section class="hero" style="background: transparent;">
+    <div class="scroll-indicator">
+      <div class="scroll-line"></div>
+      Scroll
+    </div>
+    <div class="hero-content">
+      <div class="hero-eyebrow">{t('art')}</div>
+      <h1 class="hero-title" set:html={t('hero_title')}></h1>
+      <p class="hero-sub">{t('hero_sub')}</p>
+      <div class="hero-cta">
+        <a href="#professores" class="btn-primary">
+          {t('explore')}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </a>
+        <a href={`/biblioteca?lang=${lang}`} class="btn-ghost">{t('library')}</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROFESSORES -->
+  <div class="section" id="professores">
+    <div class="reveal">
+      <div class="section-label">{t('our_masters')}</div>
+      <h2 class="section-title">{t('teachers')}</h2>
+      <p class="section-sub">{t('prof_sub')}</p>
+    </div>
+
+    <div class="professors-grid">
+      {professores.map((prof, i) => {
+        const fotoUrl = prof.foto_id
+          ? `${import.meta.env.APPWRITE_ENDPOINT}/storage/buckets/professor-photos/files/${prof.foto_id}/view?project=${import.meta.env.APPWRITE_PROJECT_ID}`
+          : `/assets/img/prof_${(i % 4) + 1}.webp`;
+        return (
+          <div
+            class="prof-card reveal"
+            style={`transition-delay: ${i * 0.1}s`}
+            onclick={`location.href='/professor/${prof.$id}?lang=${lang}'`}
+          >
+            <div class="prof-card-img" style={`background-image: url('${fotoUrl}');`}></div>
+            <div class="prof-card-overlay"></div>
+            <div class="prof-card-content">
+              <span class="prof-tag" style={`color:${prof.cor_tema};border-color:${prof.cor_tema}44;background:${prof.cor_tema}15;`}>
+                {prof.especialidade}
+              </span>
+              <div class="prof-name">{prof.nome}</div>
+              <div class="prof-cta">
+                {t('view_classes')}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+
+    {professores.length === 0 && (
+      <div class="empty-state">
+        <div class="empty-icon">🎭</div>
+        <div class="empty-title">{t('empty_prof_title')}</div>
+        <p class="empty-text">{t('empty_prof_text')}</p>
+      </div>
+    )}
+  </div>
+
+  <!-- CART DRAWER -->
+  <div class="cart-backdrop" id="cart-backdrop"></div>
+  <div class="cart-drawer" id="cart-drawer">
+    <div class="cart-header">
+      <h2>{t('cart')}</h2>
+      <button class="btn-close" id="cart-close-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="cart-items" id="cart-items"></div>
+    <div class="cart-footer" id="cart-footer" style="display:none;">
+      <div class="cart-total-row">
+        <span class="cart-total-label">{t('total')}</span>
+        <span class="cart-total-value" id="cart-total">$0.00</span>
+      </div>
+      <button class="btn-checkout" onclick="processCheckout()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+        </svg>
+        {t('checkout')}
+      </button>
+      <p class="cart-secure">🔒 {t('secure_pay')}</p>
+    </div>
+  </div>
+</MainLayout>
+
+<!-- Inject translations for external script usage -->
+<script define:vars={{ emptyTitle: t('empty_cart'), emptyText: t('add_classes') }}>
+  window.i18n = { emptyTitle, emptyText };
+</script>
+
+<script>
+  // Hero parallax & darken
+  const heroBg = document.getElementById('hero-bg');
+  const heroOverlay = document.getElementById('hero-overlay');
+  
+  if (heroBg) {
+    heroBg.style.willChange = 'transform, filter';
+  }
+
+  setTimeout(() => heroBg?.classList.add('loaded'), 100);
+  
+  window.addEventListener('scroll', () => {
+    const scrollY = window.scrollY;
+    
+    // Parallax (escala) & escurece o site todo até 80%
+    if (heroBg && heroOverlay) {
+      // Define a altura limite do scroll para atingir 80% (ex: 1.5x a altura da tela)
+      const maxScroll = window.innerHeight * 1.5;
+      const progress = Math.min(scrollY / maxScroll, 1);
+      
+      heroBg.style.transform = `scale(${1.05 + (progress * 0.05)})`;
+      
+      // O gradient base do overlay vai de 0.2 no topo a 0.8 na base.
+      // Conforme o scroll desce, a opacidade do topo aumenta até chegar a 0.8,
+      // tornando a tela inteira com 80% de blackout.
+      const topOpacity = 0.2 + (progress * 0.6); // vai de 0.2 até 0.8
+      // Usar a shorthand 'background' substitui o gradient de forma robusta
+      heroOverlay.style.background = `linear-gradient(to bottom, rgba(8, 8, 9, ${topOpacity}) 0%, rgba(8, 8, 9, 0.85) 100%)`; 
+    }
+  });
+
+  // Reveal on scroll
+  const observer = new IntersectionObserver(
+    entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }),
+    { threshold: 0.12 }
+  );
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Cart
+  const cartOpenBtn  = document.getElementById('cart-open-btn');
+  const cartCloseBtn = document.getElementById('cart-close-btn');
+  const cartBackdrop = document.getElementById('cart-backdrop');
+  const cartDrawer   = document.getElementById('cart-drawer');
+
+  function openCart()  { cartDrawer?.classList.add('open'); cartBackdrop?.classList.add('open'); loadCart(); }
+  function closeCart() { cartDrawer?.classList.remove('open'); cartBackdrop?.classList.remove('open'); }
+
+  cartOpenBtn?.addEventListener('click', openCart);
+  cartCloseBtn?.addEventListener('click', closeCart);
+  cartBackdrop?.addEventListener('click', closeCart);
+
+  async function loadCart() {
+    const res  = await fetch('/api/cart');
+    const data = await res.json();
+    renderCart(data);
+  }
+
+  function renderCart(data: { items: any[] }) {
+    const items  = data.items ?? [];
+    const el     = document.getElementById('cart-items')!;
+    const footer = document.getElementById('cart-footer')!;
+    const count  = document.getElementById('cart-count')!;
+    const total  = document.getElementById('cart-total')!;
+    const i18n   = (window as any).i18n;
+
+    count.textContent = String(items.length);
+    count.classList.toggle('show', items.length > 0);
+
+    if (items.length === 0) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">🛒</div><div class="empty-title">${i18n.emptyTitle}</div><p class="empty-text">${i18n.emptyText}</p></div>`;
+      footer.style.display = 'none';
+    } else {
+      el.innerHTML = items.map((i: any) => `
+        <div class="cart-item">
+          <div class="cart-item-info">
+            <div class="cart-item-title">${i.titulo}</div>
+            <div class="cart-item-prof">${i.prof}</div>
+          </div>
+          <div class="cart-item-price">$${i.preco.toFixed(2)}</div>
+          <button class="cart-item-remove" onclick="removeFromCart('${i.id}')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      `).join('');
+      const tot = items.reduce((s: number, i: any) => s + i.preco, 0);
+      total.textContent = `$${tot.toFixed(2)}`;
+      footer.style.display = 'block';
+    }
+  }
+
+  async function removeFromCart(id: string) {
+    const fd = new FormData();
+    fd.append('action', 'remove');
+    fd.append('video_id', id);
+    await fetch('/api/cart', { method: 'POST', body: fd });
+    loadCart();
+  }
+
+  function processCheckout() {
+    window.location.href = '/api/checkout';
+  }
+
+  (window as any).removeFromCart = removeFromCart;
+  (window as any).processCheckout = processCheckout;
+
+  loadCart();
+</script>

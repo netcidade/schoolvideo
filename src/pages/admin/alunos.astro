@@ -1,0 +1,42 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { requireAdmin } from '../../lib/auth';
+import { createAdminClient } from '../../lib/appwrite';
+import { Query } from 'node-appwrite';
+
+const user = await requireAdmin(Astro.cookies);
+const { users } = createAdminClient();
+
+const alunos = await users.list([Query.limit(100), Query.orderDesc('$createdAt')]);
+---
+<AdminLayout title="Alunos" user={user} currentPage="/admin/alunos">
+  <div class="admin-table-wrap">
+    <div class="admin-table-header">
+      <span class="admin-table-title">Alunos Cadastrados</span>
+      <span style="font-size:.8rem;color:var(--muted);">{alunos.total} aluno(s)</span>
+    </div>
+    {alunos.users.length === 0 ? (
+      <div style="padding:2rem;text-align:center;color:var(--muted);">Nenhum aluno cadastrado.</div>
+    ) : (
+      <table>
+        <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Cadastro</th></tr></thead>
+        <tbody>
+          {alunos.users.map(u => (
+            <tr>
+              <td><strong>{u.name}</strong></td>
+              <td style="color:var(--muted);">{u.email}</td>
+              <td>
+                <span class={`badge badge-${u.labels?.includes('admin') ? 'admin' : 'aluno'}`}>
+                  {u.labels?.includes('admin') ? 'Admin' : 'Aluno'}
+                </span>
+              </td>
+              <td style="color:var(--muted);font-size:.82rem;">
+                {new Date(u.$createdAt).toLocaleDateString('pt-BR')}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+</AdminLayout>

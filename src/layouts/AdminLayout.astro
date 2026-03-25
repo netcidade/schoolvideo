@@ -1,0 +1,68 @@
+---
+import '../styles/global.css';
+import '../styles/admin.css';
+import type { SessionUser } from '../lib/auth';
+
+interface Props {
+  title: string;
+  user: SessionUser;
+  currentPage?: string;
+}
+const { title, user, currentPage = '' } = Astro.props;
+
+const navItems = [
+  { href: '/admin',             label: 'Dashboard',   icon: '⊞' },
+  { href: '/admin/professores', label: 'Professores', icon: '👤' },
+  { href: '/admin/videos',      label: 'Vídeos',      icon: '▶' },
+  { href: '/admin/alunos',      label: 'Alunos',      icon: '🎓' },
+  { href: '/admin/pedidos',     label: 'Pedidos',      icon: '📋' },
+];
+---
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title} | Admin — Escola em Vídeo</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+</head>
+<body class="admin-body">
+  <aside class="admin-sidebar">
+    <div class="admin-logo">
+      <div class="admin-logo-dot"></div>
+      ESCOLA EM VÍDEO
+    </div>
+    <nav class="admin-nav">
+      {navItems.map(item => (
+        <a
+          href={item.href}
+          class={`admin-nav-link ${currentPage === item.href ? 'active' : ''}`}
+        >
+          <span>{item.icon}</span>
+          {item.label}
+        </a>
+      ))}
+    </nav>
+    <div class="admin-sidebar-footer">
+      <a href="/" target="_blank" class="admin-nav-link" style="font-size:0.78rem;">
+        ↗ Ver Site
+      </a>
+      <a href="/logout" class="admin-nav-link" style="font-size:0.78rem; color: var(--muted);">
+        ⎋ Sair
+      </a>
+    </div>
+  </aside>
+
+  <div class="admin-main">
+    <div class="admin-topbar">
+      <span class="page-title">{title}</span>
+      <div class="topbar-user">
+        Olá, <strong>{user.nome}</strong>
+      </div>
+    </div>
+    <div class="admin-content">
+      <slot />
+    </div>
+  </div>
+</body>
+</html>

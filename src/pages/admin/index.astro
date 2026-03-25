@@ -1,0 +1,94 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { requireAdmin } from '../../lib/auth';
+import { createAdminClient, DB_ID, COLLECTIONS } from '../../lib/appwrite';
+import { Query } from 'node-appwrite';
+
+const user = await requireAdmin(Astro.cookies);
+const { databases, users } = createAdminClient();
+
+// Stats
+const [profsRes, videosRes, comprasRes] = await Promise.all([
+  databases.listDocuments(DB_ID, COLLECTIONS.PROFESSORES, [Query.limit(1)]),
+  databases.listDocuments(DB_ID, COLLECTIONS.VIDEOS,      [Query.limit(1)]),
+  databases.listDocuments(DB_ID, COLLECTIONS.COMPRAS,     [Query.equal('status','pago'), Query.limit(500)]),
+]);
+
+const totalProf    = profsRes.total;
+const totalVideos  = videosRes.total;
+const totalPagos   = comprasRes.total;
+const totalReceita = comprasRes.documents.reduce((s,c) => s + (c.valor ?? 0), 0);
+
+let totalUsers = 0;
+try {
+  const u = await users.list([Query.limit(1)]);
+  totalUsers = u.total;
+} catch {}
+
+// Últimos 5 pedidos
+const recentOrders = await databases.listDocuments(DB_ID, COLLECTIONS.COMPRAS, [
+  Query.orderDesc('$createdAt'), Query.limit(5),
+]);
+---
+<AdminLayout title="Dashboard" user={user} currentPage="/admin">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Professores</div>
+      <div class="stat-value">{totalProf}</div>
+      <div class="stat-sub"><a href="/admin/professores" style="color:var(--gold);text-decoration:none;font-size:.78rem;">Gerenciar →</a></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Vídeos</div>
+      <div class="stat-value">{totalVideos}</div>
+      <div class="stat-sub"><a href="/admin/videos" style="color:var(--gold);text-decoration:none;font-size:.78rem;">Gerenciar →</a></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Alunos</div>
+      <div class="stat-value">{totalUsers}</div>
+      <div class="stat-sub"><a href="/admin/alunos" style="color:var(--gold);text-decoration:none;font-size:.78rem;">Gerenciar →</a></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Pedidos Pagos</div>
+      <div class="stat-value">{totalPagos}</div>
+      <div class="stat-sub"><a href="/admin/pedidos" style="color:var(--gold);text-decoration:none;font-size:.78rem;">Ver pedidos →</a></div>
+    </div>
+    <div class="stat-card" style="border-color:rgba(201,168,76,.3);">
+      <div class="stat-label">Receita Total</div>
+      <div class="stat-value" style="font-size:1.8rem;">${totalReceita.toFixed(2)}</div>
+      <div class="stat-sub">Pagamentos confirmados</div>
+    </div>
+  </div>
+
+  <div class="admin-table-wrap">
+    <div class="admin-table-header">
+      <span class="admin-table-title">Pedidos Recentes</span>
+      <a href="/admin/pedidos" class="btn btn-ghost btn-sm">Ver todos</a>
+    </div>
+    {recentOrders.documents.length === 0 ? (
+      <div style="padding:2rem;text-align:center;color:var(--muted);font-size:.9rem;">Nenhum pedido ainda.</div>
+    ) : (
+      <table>
+        <thead><tr><th>#</th><th>Usuário</th><th>Vídeo</th><th>Status</th><th>Data</th></tr></thead>
+        <tbody>
+          {recentOrders.documents.map(o => (
+            <tr>
+              <td style="color:var(--muted);">{o.$id.slice(0,8)}</td>
+              <td>{o.usuario_id?.slice(0,12)}…</td>
+              <td>{o.video_id?.slice(0,12)}…</td>
+              <td><span class={`badge badge-${o.status}`}>{o.status}</span></td>
+              <td style="color:var(--muted);font-size:.82rem;">{new Date(o.$createdAt).toLocaleDateString('pt-BR')}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-top:1.5rem;flex-wrap:wrap;">
+    <a href="/admin/professores" class="btn btn-gold">👤 Professores</a>
+    <a href="/admin/videos"      class="btn btn-gold">▶ Vídeos</a>
+    <a href="/admin/pedidos"     class="btn btn-ghost">📋 Pedidos</a>
+    <a href="/admin/alunos"      class="btn btn-gold">🎓 Alunos</a>
+    <a href="/" target="_blank"  class="btn btn-ghost">↗ Ver Site</a>
+  </div>
+</AdminLayout>

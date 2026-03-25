@@ -1,0 +1,52 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { requireAdmin } from '../../lib/auth';
+import { createAdminClient, DB_ID, COLLECTIONS } from '../../lib/appwrite';
+import { Query } from 'node-appwrite';
+
+const user = await requireAdmin(Astro.cookies);
+const { databases } = createAdminClient();
+
+const filtroStatus = Astro.url.searchParams.get('status') ?? '';
+const queryFilters = filtroStatus
+  ? [Query.equal('status', filtroStatus), Query.orderDesc('$createdAt'), Query.limit(200)]
+  : [Query.orderDesc('$createdAt'), Query.limit(200)];
+
+const pedidos = (await databases.listDocuments(DB_ID, COLLECTIONS.COMPRAS, queryFilters)).documents;
+---
+<AdminLayout title="Pedidos" user={user} currentPage="/admin/pedidos">
+  <div class="admin-table-wrap">
+    <div class="admin-table-header">
+      <span class="admin-table-title">Pedidos</span>
+      <form method="GET" style="display:flex;gap:.5rem;align-items:center;">
+        <select class="form-select" name="status" onchange="this.form.submit()" style="padding:4px 8px;font-size:.8rem;">
+          <option value="">Todos</option>
+          <option value="pago"      selected={filtroStatus === 'pago'}>Pagos</option>
+          <option value="pendente"  selected={filtroStatus === 'pendente'}>Pendentes</option>
+          <option value="cancelado" selected={filtroStatus === 'cancelado'}>Cancelados</option>
+        </select>
+      </form>
+    </div>
+    {pedidos.length === 0 ? (
+      <div style="padding:2rem;text-align:center;color:var(--muted);">Nenhum pedido encontrado.</div>
+    ) : (
+      <table>
+        <thead>
+          <tr><th>#</th><th>Usuário</th><th>Vídeo</th><th>Stripe Session</th><th>Status</th><th>Data</th></tr>
+        </thead>
+        <tbody>
+          {pedidos.map(p => (
+            <tr>
+              <td style="color:var(--muted);font-size:.75rem;">{p.$id.slice(0,8)}</td>
+              <td style="font-size:.82rem;">{p.usuario_id?.slice(0,16)}…</td>
+              <td style="font-size:.82rem;">{p.video_id?.slice(0,16)}…</td>
+              <td style="color:var(--muted);font-size:.72rem;">{p.stripe_session_id || '—'}</td>
+              <td><span class={`badge badge-${p.status}`}>{p.status}</span></td>
+              <td style="color:var(--muted);font-size:.82rem;">{new Date(p.$createdAt).toLocaleDateString('pt-BR')}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+</AdminLayout>

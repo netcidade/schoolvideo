@@ -1,0 +1,145 @@
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import { getSession } from '../../lib/auth';
+import { createAdminClient, DB_ID, COLLECTIONS } from '../../lib/appwrite';
+import { Query } from 'node-appwrite';
+
+const { id } = Astro.params;
+const user = await getSession(Astro.cookies);
+
+const { databases } = createAdminClient();
+
+let professor: any = null;
+let videos: any[]  = [];
+
+try {
+  professor = await databases.getDocument(DB_ID, COLLECTIONS.PROFESSORES, id!);
+  const res = await databases.listDocuments(DB_ID, COLLECTIONS.VIDEOS, [
+    Query.equal('professor_id', id!), Query.orderAsc('preco'),
+  ]);
+  videos = res.documents;
+} catch {
+  return Astro.redirect('/');
+}
+
+// Verificar quais vídeos o usuário já comprou
+let comprados = new Set<string>();
+if (user) {
+  try {
+    const res = await databases.listDocuments(DB_ID, COLLECTIONS.COMPRAS, [
+      Query.equal('usuario_id', user.id),
+      Query.equal('status', 'pago'),
+    ]);
+    res.documents.forEach(c => comprados.add(c.video_id));
+  } catch {}
+}
+
+const fotoUrl = professor.foto_id
+  ? `${import.meta.env.APPWRITE_ENDPOINT}/storage/buckets/professor-photos/files/${professor.foto_id}/view?project=${import.meta.env.APPWRITE_PROJECT_ID}`
+  : `/assets/img/prof_1.webp`;
+---
+<MainLayout title={professor.nome} user={user}>
+  <!-- HERO DO PROFESSOR -->
+  <section style="min-height:60vh; display:flex; align-items:flex-end; padding:0 2rem 4rem; position:relative; overflow:hidden;">
+    <div style={`position:absolute;inset:0;background-image:url('${fotoUrl}');background-size:cover;background-position:center top;`}></div>
+    <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(11,11,15,0.2) 0%,rgba(11,11,15,0.9) 100%);"></div>
+    <div style="position:relative;z-index:1;max-width:700px;">
+      <span class="prof-tag reveal" style={`color:${professor.cor_tema};border-color:${professor.cor_tema}44;background:${professor.cor_tema}15;`}>
+        {professor.especialidade}
+      </span>
+      <h1 style="font-family:'Cormorant Garamond',serif;font-size:clamp(2.5rem,6vw,4.5rem);font-weight:300;color:var(--cream);margin:1rem 0;">
+        {professor.nome}
+      </h1>
+      <p style="color:var(--muted);max-width:560px;line-height:1.75;">{professor.bio}</p>
+    </div>
+  </section>
+
+  <!-- AULAS -->
+  <div class="section">
+    <div class="reveal">
+      <div class="section-label">Aulas Disponíveis</div>
+      <h2 class="section-title">Catálogo de {professor.nome}</h2>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.5rem;margin-top:2.5rem;">
+      {videos.map((v) => {
+        const bought  = comprados.has(v.$id);
+        const isFree  = v.preco === 0 || v.is_preview;
+        return (
+          <div class="reveal" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;transition:border-color .2s;">
+            <div style="padding:1.5rem;">
+              {v.is_preview && <span style="font-size:0.65rem;letter-spacing:.2em;text-transform:uppercase;color:#5ECFA0;background:rgba(94,207,160,.1);border:1px solid rgba(94,207,160,.2);padding:2px 8px;border-radius:20px;margin-bottom:.75rem;display:inline-block;">Preview Gratuito</span>}
+              <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:300;color:var(--cream);margin-bottom:.5rem;">{v.titulo}</h3>
+              <p style="font-size:.82rem;color:var(--muted);line-height:1.6;margin-bottom:1rem;">{v.descricao}</p>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="color:var(--gold);font-size:1.1rem;font-weight:700;">
+                  {v.preco === 0 ? 'Grátis' : `$${v.preco.toFixed(2)}`}
+        <div class="video-card">
+          <div class="video-thumbnail">
+            {v.is_preview && <div class="video-badge">{t('free_preview')}</div>}
+            <div class="video-play-btn">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </div>
+            <div class="video-duration">{v.duracao}</div>
+          </div>
+          <div class="video-content">
+            <h3 class="video-title">{v.titulo}</h3>
+            <p class="video-desc">{desc}</p>
+            <div class="video-meta">
+              <span class="video-price">{v.preco === 0 ? t('free') : `$${v.preco.toFixed(2)}`}</span>
+              {v.preco === 0 || user ? (
+                <button class="btn-ghost" style="padding:4px 12px; font-size:0.8rem;" onclick={`location.href='/watch/${v.$id}?lang=${lang}'`}>
+                  {t('watch')}
+                </button>
+              ) : (
+                <button class="btn-primary" style="padding:4px 12px; font-size:0.8rem;" 
+                  onclick={`addToCart('${v.$id}', '${v.titulo}', '${professor.nome}', ${v.preco}, this)`}>
+                  {t('add_to_cart')}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )})}
+    </div>
+  </div>
+</MainLayout>
+
+<script define:vars={{ txtInCart: t('in_cart') }}>
+  window.txtInCart = txtInCart;
+</script>
+
+<script>
+  async function addToCart(id: string, titulo: string, prof: string, preco: number, btn: HTMLButtonElement) {
+    const fd = new FormData();
+    fd.append('action', 'add');
+    fd.append('video_id', id);
+    fd.append('titulo', titulo);
+    fd.append('prof', prof);
+    fd.append('preco', String(preco));
+
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    await fetch('/api/cart', { method: 'POST', body: fd });
+    
+    btn.textContent = window.txtInCart;
+    btn.classList.replace('btn-primary', 'btn-ghost');
+    
+    // Refresh header cart count
+    const res = await fetch('/api/cart');
+    const data = await res.json();
+    const count = document.getElementById('cart-count');
+    if (count) {
+      count.textContent = data.count;
+      count.classList.toggle('show', data.count > 0);
+    }
+  }
+  (window as any).addToCart = addToCart;
+
+const observer = new IntersectionObserver(
+  entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }),
+  { threshold: 0.1 }
+);
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>

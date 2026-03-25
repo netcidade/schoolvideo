@@ -5,12 +5,12 @@
  */
 import { Client, Databases, Users, Storage, Account } from 'node-appwrite';
 
-const endpoint  = import.meta.env.APPWRITE_ENDPOINT;
-const projectId = import.meta.env.APPWRITE_PROJECT_ID;
-const apiKey    = import.meta.env.APPWRITE_API_KEY;
+const endpoint  = import.meta.env.APPWRITE_ENDPOINT || process.env.APPWRITE_ENDPOINT;
+const projectId = import.meta.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT_ID;
+const apiKey    = import.meta.env.APPWRITE_API_KEY || process.env.APPWRITE_API_KEY;
 
 if (!endpoint || !projectId || !apiKey) {
-  throw new Error('❌ Variáveis de ambiente Appwrite não configuradas. Verifique o .env');
+  throw new Error('❌ Variáveis de ambiente Appwrite não configuradas no Cloudflare ou .env local');
 }
 
 /** Cliente com API Key (acesso admin — server only) */
@@ -44,7 +44,7 @@ function createSessionClient(sessionToken: string) {
 export { createAdminClient, createSessionClient };
 
 // IDs das collections no Appwrite
-export const DB_ID = import.meta.env.APPWRITE_DATABASE_ID ?? '';
+export const DB_ID = import.meta.env.APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '';
 
 export const COLLECTIONS = {
   PROFESSORES: 'professores',
@@ -52,4 +52,4 @@ export const COLLECTIONS = {
   COMPRAS:     'compras',
 } as const;
 
-export const BUCKET_ID = import.meta.env.APPWRITE_BUCKET_ID ?? 'professor-photos';
+export const BUCKET_ID = import.meta.env.APPWRITE_BUCKET_ID || process.env.APPWRITE_BUCKET_ID || 'professor-photos';

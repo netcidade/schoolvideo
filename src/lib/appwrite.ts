@@ -3,22 +3,24 @@
  * Chamado APENAS em arquivos .astro (server) e API routes.
  * NUNCA importar em componentes React client-side.
  */
-import { Client, Databases, Users, Storage, Account } from 'node-appwrite';
 
 const endpoint  = import.meta.env.APPWRITE_ENDPOINT || process.env.APPWRITE_ENDPOINT;
 const projectId = import.meta.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT_ID;
 const apiKey    = import.meta.env.APPWRITE_API_KEY || process.env.APPWRITE_API_KEY;
 
+let __initError = '';
 if (!endpoint || !projectId || !apiKey) {
-  throw new Error('❌ Variáveis de ambiente Appwrite não configuradas no Cloudflare ou .env local');
+  console.error('❌ Variáveis de ambiente Appwrite não configuradas no Cloudflare ou .env local');
+  __initError = `Missing Env. Endpoint: ${!!endpoint}, Project: ${!!projectId}, Key: ${!!apiKey}`;
 }
 
 /** Cliente com API Key (acesso admin — server only) */
-function createAdminClient() {
+async function createAdminClient() {
+  const { Client, Databases, Users, Storage, Account } = await import('node-appwrite');
   const client = new Client()
-    .setEndpoint(endpoint)
-    .setProject(projectId)
-    .setKey(apiKey);
+    .setEndpoint(endpoint as string)
+    .setProject(projectId as string)
+    .setKey(apiKey as string);
 
   return {
     databases: new Databases(client),
@@ -29,10 +31,11 @@ function createAdminClient() {
 }
 
 /** Cliente sem API Key (acesso como usuário via sessão) */
-function createSessionClient(sessionToken: string) {
+async function createSessionClient(sessionToken: string) {
+  const { Client, Databases, Account } = await import('node-appwrite');
   const client = new Client()
-    .setEndpoint(endpoint)
-    .setProject(projectId)
+    .setEndpoint(endpoint as string)
+    .setProject(projectId as string)
     .setJWT(sessionToken);
 
   return {

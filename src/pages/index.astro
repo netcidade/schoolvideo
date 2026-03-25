@@ -11,17 +11,25 @@ const t = useTranslations(lang);
 
 // Buscar professores no Appwrite
 let professores: any[] = [];
+let debugErrorMsg = '';
 try {
-  const { databases } = createAdminClient();
+  const { databases } = await createAdminClient();
   const res = await databases.listDocuments(DB_ID, COLLECTIONS.PROFESSORES, [
     Query.orderAsc('nome'), Query.limit(20),
   ]);
   professores = res.documents;
-} catch (e) {
+} catch (e: any) {
   console.error('Erro ao buscar professores:', e);
+  debugErrorMsg = e.stack || e.message || String(e);
 }
 ---
 <MainLayout title={t('catalog')} user={user}>
+  {debugErrorMsg && (
+    <div style="background: red; color: white; padding: 20px; z-index: 9999; position: relative;">
+      <h2>FATAL ERROR ON EDGE:</h2>
+      <pre>{debugErrorMsg}</pre>
+    </div>
+  )}
 
   <!-- GLOBAL FIXED BACKGROUND -->
   <div class="hero-bg" id="hero-bg" style="background-image: url('/assets/img/hero.webp'); position: fixed; inset: 0; z-index: -2; background-size: cover; background-position: center top;"></div>

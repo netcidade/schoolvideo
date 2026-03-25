@@ -3,9 +3,12 @@ import MainLayout from '../../layouts/MainLayout.astro';
 import { getSession } from '../../lib/auth';
 import { createAdminClient, DB_ID, COLLECTIONS } from '../../lib/appwrite';
 import { Query } from 'node-appwrite';
+import { getLang, useTranslations } from '../../lib/i18n';
 
 const { id } = Astro.params;
 const user = await getSession(Astro.cookies);
+const lang = getLang(Astro.cookies, Astro.url);
+const t = useTranslations(lang);
 
 const { databases } = createAdminClient();
 
@@ -57,50 +60,41 @@ const fotoUrl = professor.foto_id
   <!-- AULAS -->
   <div class="section">
     <div class="reveal">
-      <div class="section-label">Aulas Disponíveis</div>
-      <h2 class="section-title">Catálogo de {professor.nome}</h2>
+      <div class="section-label">{t('avail_classes')}</div>
+      <h2 class="section-title">{t('catalog')} de {professor.nome}</h2>
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.5rem;margin-top:2.5rem;">
+    <div class="video-list">
       {videos.map((v) => {
         const bought  = comprados.has(v.$id);
         const isFree  = v.preco === 0 || v.is_preview;
         return (
-          <div class="reveal" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;transition:border-color .2s;">
-            <div style="padding:1.5rem;">
-              {v.is_preview && <span style="font-size:0.65rem;letter-spacing:.2em;text-transform:uppercase;color:#5ECFA0;background:rgba(94,207,160,.1);border:1px solid rgba(94,207,160,.2);padding:2px 8px;border-radius:20px;margin-bottom:.75rem;display:inline-block;">Preview Gratuito</span>}
-              <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:300;color:var(--cream);margin-bottom:.5rem;">{v.titulo}</h3>
-              <p style="font-size:.82rem;color:var(--muted);line-height:1.6;margin-bottom:1rem;">{v.descricao}</p>
-              <div style="display:flex;justify-content:space-between;align-items:center;">
-                <span style="color:var(--gold);font-size:1.1rem;font-weight:700;">
-                  {v.preco === 0 ? 'Grátis' : `$${v.preco.toFixed(2)}`}
-        <div class="video-card">
-          <div class="video-thumbnail">
-            {v.is_preview && <div class="video-badge">{t('free_preview')}</div>}
-            <div class="video-play-btn">
+          <div class="video-row reveal">
+            <div class="video-icon-box">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             </div>
-            <div class="video-duration">{v.duracao}</div>
-          </div>
-          <div class="video-content">
-            <h3 class="video-title">{v.titulo}</h3>
-            <p class="video-desc">{desc}</p>
-            <div class="video-meta">
-              <span class="video-price">{v.preco === 0 ? t('free') : `$${v.preco.toFixed(2)}`}</span>
-              {v.preco === 0 || user ? (
-                <button class="btn-ghost" style="padding:4px 12px; font-size:0.8rem;" onclick={`location.href='/watch/${v.$id}?lang=${lang}'`}>
-                  {t('watch')}
-                </button>
+            <div class="video-info">
+              <h3 class="video-title">{v.titulo}</h3>
+              <p class="video-desc">{v.descricao}</p>
+              <div class="video-meta">
+                {v.is_preview && <span class="tag-preview">{t('free_preview')}</span>}
+                {bought && <span class="tag-purchased">Adquirido</span>}
+                <span>{v.duracao}</span>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:1.5rem;">
+              <span class={isFree ? 'video-price free-price' : 'video-price'}>
+                {v.preco === 0 ? t('free') : `$${v.preco.toFixed(2)}`}
+              </span>
+              {isFree || bought || user ? (
+                <button class="btn-watch" onclick={`location.href='/watch/${v.$id}?lang=${lang}'`}>{t('watch')}</button>
               ) : (
-                <button class="btn-primary" style="padding:4px 12px; font-size:0.8rem;" 
-                  onclick={`addToCart('${v.$id}', '${v.titulo}', '${professor.nome}', ${v.preco}, this)`}>
-                  {t('add_to_cart')}
-                </button>
+                <button class="btn-buy" onclick={`addToCart('${v.$id}', '${v.titulo}', '${professor.nome}', ${v.preco}, this)`}>{t('add_to_cart')}</button>
               )}
             </div>
           </div>
-        </div>
-      )})}
+        );
+      })}
     </div>
   </div>
 </MainLayout>
@@ -124,9 +118,8 @@ const fotoUrl = professor.foto_id
     await fetch('/api/cart', { method: 'POST', body: fd });
     
     btn.textContent = window.txtInCart;
-    btn.classList.replace('btn-primary', 'btn-ghost');
+    btn.classList.replace('btn-buy', 'btn-in-cart');
     
-    // Refresh header cart count
     const res = await fetch('/api/cart');
     const data = await res.json();
     const count = document.getElementById('cart-count');
@@ -137,9 +130,9 @@ const fotoUrl = professor.foto_id
   }
   (window as any).addToCart = addToCart;
 
-const observer = new IntersectionObserver(
-  entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }),
-  { threshold: 0.1 }
-);
-document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  const observer = new IntersectionObserver(
+    entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }),
+    { threshold: 0.1 }
+  );
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 </script>

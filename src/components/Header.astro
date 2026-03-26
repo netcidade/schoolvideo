@@ -35,7 +35,7 @@ const t    = useTranslations(lang);
       {user ? (
         <div style="display:flex; align-items:center; gap:1rem;">
           {user.role === 'admin' ? (
-            <a href="/admin" class="btn-primary" style="padding: 4px 12px; font-size: 0.72rem; border-radius: 4px;">
+            <a href="/admin" class="btn btn-gold btn-sm" style="padding: 4px 12px; font-size: 0.72rem; border-radius: 4px;">
               📊 {t('admin')}
             </a>
           ) : (

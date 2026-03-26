@@ -118,8 +118,8 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
   font-weight: 500; text-decoration: none; cursor: pointer;
   border: none; transition: all 0.2s;
 }
-.btn-gold    { background: var(--gold); color: var(--dark); border: none; }
-.btn-gold:hover { background: #d4af5a; }
+.btn-gold    { background: var(--gold-grad); color: var(--dark); border: none; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.btn-gold:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3); }
 .btn-ghost   { background: transparent; color: var(--cream); border: 1px solid var(--border); }
 .btn-ghost:hover { border-color: rgba(255,255,255,0.3); }
 .btn-danger  { background: rgba(255,107,107,0.1); color: #ff6b6b; border: 1px solid rgba(255,107,107,0.3); }

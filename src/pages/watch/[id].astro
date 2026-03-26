@@ -52,10 +52,25 @@ try {
   <div style="min-height:100vh; padding-top: 100px; background: #000;">
     <div style="max-width:1200px; margin:0 auto; padding:0 2rem;">
       <!-- PLAYER -->
-      <div style="aspect-ratio:16/9; background:#111; border-radius:12px; overflow:hidden; box-shadow: 0 30px 60px rgba(0,0,0,0.8); border:1px solid rgba(255,255,255,0.05);">
+      <div 
+        style="aspect-ratio:16/9; background:#111; border-radius:12px; overflow:hidden; box-shadow: 0 30px 60px rgba(0,0,0,0.8); border:1px solid rgba(255,255,255,0.05); position:relative;"
+        oncontextmenu="return false;"
+      >
+        <!-- Proteção transparente para dificultar clique direto no player -->
+        <div style="position:absolute; inset:0; z-index:10; pointer-events:none;"></div>
+
         {video.video_url ? (
           <iframe 
-            src={video.video_url.includes('youtube.com') ? video.video_url.replace('watch?v=', 'embed/') : video.video_url} 
+            src={(() => {
+              const url = video.video_url;
+              if (url.includes('youtube.com/watch?v=')) return url.replace('watch?v=', 'embed/');
+              if (url.includes('youtu.be/')) return `https://www.youtube.com/embed/${url.split('/').pop()}`;
+              if (url.includes('vimeo.com/')) {
+                const id = url.split('/').pop()?.split('?')[0];
+                return `https://player.vimeo.com/video/${id}?badge=0&autopause=0&player_id=0&app_id=58479`;
+              }
+              return url;
+            })()} 
             style="width:100%; height:100%; border:0;"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
             allowfullscreen

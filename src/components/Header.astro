@@ -18,7 +18,7 @@ const t    = useTranslations(lang);
     </a>
 
     <ul class="nav-links">
-      <li><a href={`/#professores?lang=${lang}`} class={path === '/' ? 'active' : ''}>{t('catalog')}</a></li>
+      <li><a href={`/?lang=${lang}#professores`} class={path === '/' ? 'active' : ''}>{t('catalog')}</a></li>
       {user && <li><a href={`/biblioteca?lang=${lang}`} class={path.startsWith('/biblioteca') ? 'active' : ''}>{t('library')}</a></li>}
     </ul>
   </div>

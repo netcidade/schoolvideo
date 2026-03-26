@@ -14,6 +14,13 @@
     --surface: #111116;
     --border: rgba(255, 255, 255, 0.08);
     --gold: #C9A84C;
+    --gold-grad: linear-gradient(135deg, #af8d26 0%, #ecd07a 50%, #af8d26 100%);
+    --gold-glow: rgba(212, 175, 55, 0.5);
+    
+    --glass: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-blur: blur(12px);
+
     --cream: #F0EAD6;
     --muted: rgba(240, 234, 214, 0.45);
   }

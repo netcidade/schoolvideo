@@ -56,6 +56,9 @@ if (video?.video_url) {
   } else if (url.includes('vimeo.com/')) {
     const id = url.split('/').pop()?.split('?')[0];
     embedUrl = `https://player.vimeo.com/video/${id}?badge=0&autopause=0&player_id=0&app_id=58479`;
+  } else if (/^[a-zA-Z0-9_-]{11}$/.test(url)) {
+    // Se tiver 11 caracteres, assume que é um ID do YouTube
+    embedUrl = `https://www.youtube.com/embed/${url}`;
   } else if (/^\d+$/.test(url)) {
     // Se for APENAS números, assume que é um ID do Vimeo
     embedUrl = `https://player.vimeo.com/video/${url}?badge=0&autopause=0&player_id=0&app_id=58479`;

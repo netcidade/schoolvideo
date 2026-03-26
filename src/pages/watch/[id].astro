@@ -36,19 +36,33 @@ try {
     }
   }
 
-  if (video.professor_id) {
-    professor = await databases.getDocument(dynamicDbId, COLLECTIONS.PROFESSORES, video.professor_id);
-  }
-
-  if (!hasAccess) {
-    return Astro.redirect(`/?lang=${lang}`);
+  if (video.video_id) {
+    // ...
   }
 } catch {
   return Astro.redirect(`/?lang=${lang}`);
 }
+
+// Lógica de Embed (YouTube / Vimeo)
+let embedUrl = '';
+if (video?.video_url) {
+  const url = video.video_url;
+  if (url.includes('youtube.com/watch?v=')) {
+    embedUrl = url.replace('watch?v=', 'embed/');
+  } else if (url.includes('youtu.be/')) {
+    const id = url.split('/').pop();
+    embedUrl = `https://www.youtube.com/embed/${id}`;
+  } else if (url.includes('vimeo.com/')) {
+    const id = url.split('/').pop()?.split('?')[0];
+    embedUrl = `https://player.vimeo.com/video/${id}?badge=0&autopause=0&player_id=0&app_id=58479`;
+  } else {
+    // Se for uma URL direta ou desconhecida, tenta usar como está
+    embedUrl = url;
+  }
+}
 ---
 
-<MainLayout title={`Assistindo: ${video.titulo}`} user={user}>
+<MainLayout title={`Assistindo: ${video?.titulo || ''}`} user={user}>
   <div style="min-height:100vh; padding-top: 100px; background: #000;">
     <div style="max-width:1200px; margin:0 auto; padding:0 2rem;">
       <!-- PLAYER -->
@@ -59,18 +73,9 @@ try {
         <!-- Proteção transparente para dificultar clique direto no player -->
         <div style="position:absolute; inset:0; z-index:10; pointer-events:none;"></div>
 
-        {video.video_url ? (
+        {embedUrl ? (
           <iframe 
-            src={(() => {
-              const url = video.video_url;
-              if (url.includes('youtube.com/watch?v=')) return url.replace('watch?v=', 'embed/');
-              if (url.includes('youtu.be/')) return `https://www.youtube.com/embed/${url.split('/').pop()}`;
-              if (url.includes('vimeo.com/')) {
-                const id = url.split('/').pop()?.split('?')[0];
-                return `https://player.vimeo.com/video/${id}?badge=0&autopause=0&player_id=0&app_id=58479`;
-              }
-              return url;
-            })()} 
+            src={embedUrl} 
             style="width:100%; height:100%; border:0;"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
             allowfullscreen

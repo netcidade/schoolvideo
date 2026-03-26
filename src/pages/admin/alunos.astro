@@ -4,8 +4,9 @@ import { requireAdmin } from '../../lib/auth';
 import { createAdminClient } from '../../lib/appwrite';
 import { Query } from 'node-appwrite';
 
-const user = await requireAdmin(Astro.cookies);
-const { users } = createAdminClient();
+const cfEnv = Astro.locals.runtime?.env || {};
+const user = await requireAdmin(Astro.cookies, cfEnv);
+const { users } = await createAdminClient(cfEnv);
 
 const alunos = await users.list([Query.limit(100), Query.orderDesc('$createdAt')]);
 ---

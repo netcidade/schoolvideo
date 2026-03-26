@@ -15,11 +15,11 @@ export interface SessionUser {
 }
 
 /** Lê a sessão do cookie e retorna o usuário ou null */
-export async function getSession(cookies: AstroCookies): Promise<SessionUser | null> {
+export async function getSession(cookies: AstroCookies, cfEnv: any = {}): Promise<SessionUser | null> {
   const token = cookies.get(SESSION_COOKIE)?.value;
   if (!token) return null;
   try {
-    const { account } = createSessionClient(token);
+    const { account } = await createSessionClient(token, cfEnv);
     const user = await account.get();
     const role = (user.labels ?? []).includes('admin') ? 'admin' : 'aluno';
     return { id: user.$id, nome: user.name, email: user.email, role };
@@ -33,9 +33,10 @@ export async function login(
   email: string,
   password: string,
   cookies: AstroCookies,
+  cfEnv: any = {}
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    const { account } = createAdminClient();
+    const { account } = await createAdminClient(cfEnv);
     const session = await account.createEmailPasswordSession(email, password);
     cookies.set(SESSION_COOKIE, session.secret, {
       httpOnly: true,
@@ -56,15 +57,15 @@ export function logout(cookies: AstroCookies) {
 }
 
 /** Redireciona se não autenticado */
-export async function requireLogin(cookies: AstroCookies, redirect?: string): Promise<SessionUser> {
-  const session = await getSession(cookies);
+export async function requireLogin(cookies: AstroCookies, redirect?: string, cfEnv: any = {}): Promise<SessionUser> {
+  const session = await getSession(cookies, cfEnv);
   if (!session) throw new Response(null, { status: 302, headers: { Location: `/login?redirect=${redirect ?? '/'}` } });
   return session;
 }
 
 /** Redireciona se não for admin */
-export async function requireAdmin(cookies: AstroCookies): Promise<SessionUser> {
-  const session = await requireLogin(cookies, '/admin');
+export async function requireAdmin(cookies: AstroCookies, cfEnv: any = {}): Promise<SessionUser> {
+  const session = await requireLogin(cookies, '/admin', cfEnv);
   if (session.role !== 'admin') throw new Response(null, { status: 302, headers: { Location: '/' } });
   return session;
 }

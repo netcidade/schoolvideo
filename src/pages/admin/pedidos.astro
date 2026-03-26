@@ -4,15 +4,17 @@ import { requireAdmin } from '../../lib/auth';
 import { createAdminClient, DB_ID, COLLECTIONS } from '../../lib/appwrite';
 import { Query } from 'node-appwrite';
 
-const user = await requireAdmin(Astro.cookies);
-const { databases } = createAdminClient();
+const cfEnv = Astro.locals.runtime?.env || {};
+const dynamicDbId = cfEnv.APPWRITE_DATABASE_ID || DB_ID;
+const user = await requireAdmin(Astro.cookies, cfEnv);
+const { databases } = await createAdminClient(cfEnv);
 
 const filtroStatus = Astro.url.searchParams.get('status') ?? '';
 const queryFilters = filtroStatus
   ? [Query.equal('status', filtroStatus), Query.orderDesc('$createdAt'), Query.limit(200)]
   : [Query.orderDesc('$createdAt'), Query.limit(200)];
 
-const pedidos = (await databases.listDocuments(DB_ID, COLLECTIONS.COMPRAS, queryFilters)).documents;
+const pedidos = (await databases.listDocuments(dynamicDbId, COLLECTIONS.COMPRAS, queryFilters)).documents;
 ---
 <AdminLayout title="Pedidos" user={user} currentPage="/admin/pedidos">
   <div class="admin-table-wrap">

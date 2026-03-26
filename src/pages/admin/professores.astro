@@ -4,8 +4,10 @@ import { requireAdmin } from '../../lib/auth';
 import { createAdminClient, DB_ID, COLLECTIONS, BUCKET_ID } from '../../lib/appwrite';
 import { Query, ID } from 'node-appwrite';
 
-const user = await requireAdmin(Astro.cookies);
-const { databases, storage } = createAdminClient();
+const cfEnv = Astro.locals.runtime?.env || {};
+const dynamicDbId = cfEnv.APPWRITE_DATABASE_ID || DB_ID;
+const user = await requireAdmin(Astro.cookies, cfEnv);
+const { databases, storage } = await createAdminClient(cfEnv);
 
 let msg = '';
 let err = '';
@@ -17,11 +19,11 @@ if (Astro.request.method === 'POST') {
 
   if (action === 'delete') {
     const id   = form.get('id')?.toString() ?? '';
-    const prof = await databases.getDocument(DB_ID, COLLECTIONS.PROFESSORES, id);
+    const prof = await databases.getDocument(dynamicDbId, COLLECTIONS.PROFESSORES, id);
     if (prof.foto_id) {
       try { await storage.deleteFile(BUCKET_ID, prof.foto_id); } catch {}
     }
-    await databases.deleteDocument(DB_ID, COLLECTIONS.PROFESSORES, id);
+    await databases.deleteDocument(dynamicDbId, COLLECTIONS.PROFESSORES, id);
     msg = 'Professor removido.';
   } else if (action === 'add' || action === 'edit') {
     // Upload de foto
@@ -51,11 +53,11 @@ if (Astro.request.method === 'POST') {
     };
 
     if (action === 'add') {
-      await databases.createDocument(DB_ID, COLLECTIONS.PROFESSORES, ID.unique(), data);
+      await databases.createDocument(dynamicDbId, COLLECTIONS.PROFESSORES, ID.unique(), data);
       msg = 'Professor adicionado!';
     } else {
       const id = form.get('id')?.toString() ?? '';
-      await databases.updateDocument(DB_ID, COLLECTIONS.PROFESSORES, id, data);
+      await databases.updateDocument(dynamicDbId, COLLECTIONS.PROFESSORES, id, data);
       msg = 'Professor atualizado!';
     }
   }
@@ -64,14 +66,14 @@ if (Astro.request.method === 'POST') {
 
 if (Astro.url.searchParams.get('ok')) msg = 'Operação realizada com sucesso!';
 
-const professores = (await databases.listDocuments(DB_ID, COLLECTIONS.PROFESSORES, [
+const professores = (await databases.listDocuments(dynamicDbId, COLLECTIONS.PROFESSORES, [
   Query.orderAsc('nome'), Query.limit(100),
 ])).documents;
 
 // Edição
 let editProf: any = null;
 const editId = Astro.url.searchParams.get('edit');
-if (editId) editProf = await databases.getDocument(DB_ID, COLLECTIONS.PROFESSORES, editId);
+if (editId) editProf = await databases.getDocument(dynamicDbId, COLLECTIONS.PROFESSORES, editId);
 
 const endpoint  = import.meta.env.APPWRITE_ENDPOINT;
 const projectId = import.meta.env.APPWRITE_PROJECT_ID;

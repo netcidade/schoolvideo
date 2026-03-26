@@ -5,7 +5,8 @@ import { createAdminClient, DB_ID, COLLECTIONS } from '../lib/appwrite';
 import { Query } from 'node-appwrite';
 import { getLang, useTranslations } from '../lib/i18n';
 
-const user = await getSession(Astro.cookies);
+const cfEnv = Astro.locals.runtime?.env || {};
+const user = await getSession(Astro.cookies, cfEnv);
 const lang = getLang(Astro.cookies, Astro.url);
 const t = useTranslations(lang);
 
@@ -74,14 +75,20 @@ try {
 
     <div class="professors-grid">
       {professores.map((prof, i) => {
+        const hash = prof.$id ? prof.$id.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0) : 0;
+        const bgIndex = (hash % 4) + 1;
+        
+        const endpoint = cfEnv.APPWRITE_ENDPOINT || import.meta.env.APPWRITE_ENDPOINT;
+        const projId   = cfEnv.APPWRITE_PROJECT_ID || import.meta.env.APPWRITE_PROJECT_ID;
+
         const fotoUrl = prof.foto_id
-          ? `${import.meta.env.APPWRITE_ENDPOINT}/storage/buckets/professor-photos/files/${prof.foto_id}/view?project=${import.meta.env.APPWRITE_PROJECT_ID}`
-          : `/assets/img/prof_${(i % 4) + 1}.webp`;
+          ? `${endpoint}/storage/buckets/professor-photos/files/${prof.foto_id}/view?project=${projId}`
+          : `/assets/img/prof_${bgIndex}.webp`;
         return (
-          <div
+          <a
+            href={`/professor/${prof.$id}?lang=${lang}`}
             class="prof-card reveal"
-            style={`transition-delay: ${i * 0.1}s`}
-            onclick={`location.href='/professor/${prof.$id}?lang=${lang}'`}
+            style={`transition-delay: ${i * 0.1}s; text-decoration: none;`}
           >
             <div class="prof-card-img" style={`background-image: url('${fotoUrl}');`}></div>
             <div class="prof-card-overlay"></div>
@@ -97,7 +104,7 @@ try {
                 </svg>
               </div>
             </div>
-          </div>
+          </a>
         );
       })}
     </div>
@@ -122,19 +129,6 @@ try {
         </svg>
       </button>
     </div>
-    <div class="cart-items" id="cart-items"></div>
-    <div class="cart-footer" id="cart-footer" style="display:none;">
-      <div class="cart-total-row">
-        <span class="cart-total-label">{t('total')}</span>
-        <span class="cart-total-value" id="cart-total">$0.00</span>
-      </div>
-      <button class="btn-checkout" onclick="processCheckout()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
-        </svg>
-        {t('checkout')}
-      </button>
-      <p class="cart-secure">🔒 {t('secure_pay')}</p>
     </div>
   </div>
 </MainLayout>
@@ -182,74 +176,26 @@ try {
   );
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-  // Cart
-  const cartOpenBtn  = document.getElementById('cart-open-btn');
-  const cartCloseBtn = document.getElementById('cart-close-btn');
-  const cartBackdrop = document.getElementById('cart-backdrop');
-  const cartDrawer   = document.getElementById('cart-drawer');
+  async function addToCart(id: string, titulo: string, prof: string, preco: number, btn: HTMLButtonElement) {
+    const fd = new FormData();
+    fd.append('action', 'add');
+    fd.append('video_id', id);
+    fd.append('titulo', titulo);
+    fd.append('prof', prof);
+    fd.append('preco', String(preco));
 
-  function openCart()  { cartDrawer?.classList.add('open'); cartBackdrop?.classList.add('open'); loadCart(); }
-  function closeCart() { cartDrawer?.classList.remove('open'); cartBackdrop?.classList.remove('open'); }
+    btn.disabled = true;
+    btn.textContent = '...';
 
-  cartOpenBtn?.addEventListener('click', openCart);
-  cartCloseBtn?.addEventListener('click', closeCart);
-  cartBackdrop?.addEventListener('click', closeCart);
-
-  async function loadCart() {
-    const res  = await fetch('/api/cart');
-    const data = await res.json();
-    renderCart(data);
-  }
-
-  function renderCart(data: { items: any[] }) {
-    const items  = data.items ?? [];
-    const el     = document.getElementById('cart-items')!;
-    const footer = document.getElementById('cart-footer')!;
-    const count  = document.getElementById('cart-count')!;
-    const total  = document.getElementById('cart-total')!;
-    const i18n   = (window as any).i18n;
-
-    count.textContent = String(items.length);
-    count.classList.toggle('show', items.length > 0);
-
-    if (items.length === 0) {
-      el.innerHTML = `<div class="empty-state"><div class="empty-icon">🛒</div><div class="empty-title">${i18n.emptyTitle}</div><p class="empty-text">${i18n.emptyText}</p></div>`;
-      footer.style.display = 'none';
-    } else {
-      el.innerHTML = items.map((i: any) => `
-        <div class="cart-item">
-          <div class="cart-item-info">
-            <div class="cart-item-title">${i.titulo}</div>
-            <div class="cart-item-prof">${i.prof}</div>
-          </div>
-          <div class="cart-item-price">$${i.preco.toFixed(2)}</div>
-          <button class="cart-item-remove" onclick="removeFromCart('${i.id}')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
-      `).join('');
-      const tot = items.reduce((s: number, i: any) => s + i.preco, 0);
-      total.textContent = `$${tot.toFixed(2)}`;
-      footer.style.display = 'block';
+    await fetch('/api/cart', { method: 'POST', body: fd });
+    
+    btn.textContent = (window as any).txtInCart || 'No Carrinho';
+    btn.classList.replace('btn-buy', 'btn-in-cart');
+    
+    // Abrir o carrinho global
+    if (typeof (window as any).openCart === 'function') {
+      (window as any).openCart();
     }
   }
-
-  async function removeFromCart(id: string) {
-    const fd = new FormData();
-    fd.append('action', 'remove');
-    fd.append('video_id', id);
-    await fetch('/api/cart', { method: 'POST', body: fd });
-    loadCart();
-  }
-
-  function processCheckout() {
-    window.location.href = '/api/checkout';
-  }
-
-  (window as any).removeFromCart = removeFromCart;
-  (window as any).processCheckout = processCheckout;
-
-  loadCart();
+  (window as any).addToCart = addToCart;
 </script>

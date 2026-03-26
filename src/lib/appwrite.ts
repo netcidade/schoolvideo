@@ -41,7 +41,7 @@ async function createSessionClient(sessionToken: string, cfEnv: any = {}) {
   const client = new Client()
     .setEndpoint(endpoint as string)
     .setProject(projectId as string)
-    .setJWT(sessionToken);
+    .setSession(sessionToken);
 
   return {
     account:   new Account(client),

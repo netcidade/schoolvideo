@@ -4,24 +4,26 @@ import { getSession } from '../../lib/auth';
 import { getCart, clearCart } from '../../lib/cart';
 import Stripe from 'stripe';
 
-export const GET: APIRoute = async ({ cookies, redirect }) => {
-  const user = await getSession(cookies);
+export const GET: APIRoute = async ({ cookies, redirect, locals }) => {
+  const cfEnv = locals.runtime?.env || {};
+  const user = await getSession(cookies, cfEnv);
   if (!user) return redirect('/login?redirect=/');
 
   const items = getCart(cookies);
   if (items.length === 0) return redirect('/');
 
-  const stripe = new Stripe(import.meta.env.STRIPE_SECRET_KEY ?? '', {
-    apiVersion: '2025-03-31.basil',
+  const stripeKey = cfEnv.STRIPE_SECRET_KEY || import.meta.env.STRIPE_SECRET_KEY;
+  const stripe = new Stripe(stripeKey ?? '', {
+    apiVersion: '2024-12-18.acacia' as any,
   });
 
-  const appUrl = import.meta.env.PUBLIC_APP_URL ?? 'http://localhost:4321';
+  const appUrl = cfEnv.PUBLIC_APP_URL || import.meta.env.PUBLIC_APP_URL || 'http://localhost:4321';
 
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     line_items: items.map(item => ({
       price_data: {
-        currency: 'usd',
+        currency: 'brl',
         product_data: { name: item.titulo, description: item.prof },
         unit_amount: Math.round(item.preco * 100),
       },

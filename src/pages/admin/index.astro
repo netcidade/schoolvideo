@@ -4,14 +4,16 @@ import { requireAdmin } from '../../lib/auth';
 import { createAdminClient, DB_ID, COLLECTIONS } from '../../lib/appwrite';
 import { Query } from 'node-appwrite';
 
-const user = await requireAdmin(Astro.cookies);
-const { databases, users } = createAdminClient();
+const cfEnv = Astro.locals.runtime?.env || {};
+const dynamicDbId = cfEnv.APPWRITE_DATABASE_ID || DB_ID;
+const user = await requireAdmin(Astro.cookies, cfEnv);
+const { databases, users } = await createAdminClient(cfEnv);
 
 // Stats
 const [profsRes, videosRes, comprasRes] = await Promise.all([
-  databases.listDocuments(DB_ID, COLLECTIONS.PROFESSORES, [Query.limit(1)]),
-  databases.listDocuments(DB_ID, COLLECTIONS.VIDEOS,      [Query.limit(1)]),
-  databases.listDocuments(DB_ID, COLLECTIONS.COMPRAS,     [Query.equal('status','pago'), Query.limit(500)]),
+  databases.listDocuments(dynamicDbId, COLLECTIONS.PROFESSORES, [Query.limit(1)]),
+  databases.listDocuments(dynamicDbId, COLLECTIONS.VIDEOS,      [Query.limit(1)]),
+  databases.listDocuments(dynamicDbId, COLLECTIONS.COMPRAS,     [Query.equal('status','pago'), Query.limit(500)]),
 ]);
 
 const totalProf    = profsRes.total;
@@ -26,7 +28,7 @@ try {
 } catch {}
 
 // Últimos 5 pedidos
-const recentOrders = await databases.listDocuments(DB_ID, COLLECTIONS.COMPRAS, [
+const recentOrders = await databases.listDocuments(dynamicDbId, COLLECTIONS.COMPRAS, [
   Query.orderDesc('$createdAt'), Query.limit(5),
 ]);
 ---

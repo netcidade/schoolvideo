@@ -1,0 +1,37 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import { getLang, useTranslations } from '../lib/i18n';
+import { getSession } from '../lib/auth';
+
+const cfEnv = Astro.locals.runtime?.env || {};
+const user = await getSession(Astro.cookies, cfEnv);
+const lang = getLang(Astro.cookies, Astro.url);
+const t    = useTranslations(lang);
+---
+
+<MainLayout title="Sucesso!" user={user}>
+  <div style="min-height:90vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem; text-align:center;">
+    <div style="width:100px; height:100px; background:rgba(201,168,76,0.1); border:1px solid var(--gold); border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:2rem; animation: pulse 2s infinite;">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    
+    <div class="section-label">PAGAMENTO CONFIRMADO</div>
+    <h1 style="font-family:'Cormorant Garamond',serif; font-size:3.5rem; color:var(--cream); margin-bottom:1.5rem; font-weight:300;">Obrigado pela sua compra!</h1>
+    <p style="color:var(--muted); max-width:500px; line-height:1.7; margin-bottom:2.5rem;">
+      Seu acesso às aulas foi liberado instantaneamente. Explore sua biblioteca para começar a dançar agora mesmo com os melhores mestres.
+    </p>
+
+    <div style="display:flex; gap:1.5rem; flex-wrap:wrap; justify-content:center;">
+      <a href={`/biblioteca?lang=${lang}`} class="btn-primary">Acessar Minha Biblioteca</a>
+      <a href="/" class="btn-ghost">Voltar ao Catálogo</a>
+    </div>
+  </div>
+</MainLayout>
+
+<style>
+  @keyframes pulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(201, 168, 76, 0.4); }
+    70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(201, 168, 76, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(201, 168, 76, 0); }
+  }
+</style>

@@ -20,13 +20,12 @@ const t    = useTranslations(lang);
     <ul class="nav-links">
       <li><a href={`/?lang=${lang}`} class={path === '/' ? 'active' : ''}>{t('catalog')}</a></li>
       {user && <li><a href={`/biblioteca?lang=${lang}`} class={path.startsWith('/biblioteca') ? 'active' : ''}>{t('library')}</a></li>}
-      {user?.role === 'admin' && <li><a href="/admin" style="color:var(--gold);font-weight:600;">{t('admin')}</a></li>}
     </ul>
   </div>
 
   <div style="display:flex; align-items:center; gap:1.5rem;">
     <!-- i18n switch -->
-    <div style="display:flex;gap:4px;font-size:0.75rem;">
+    <div style="display:flex;gap:6px;font-size:0.85rem;">
       <a href="?lang=en" style={`color:${lang === 'en' ? 'var(--gold)' : 'var(--muted)'};text-decoration:none;font-weight:${lang === 'en' ? 'bold' : 'normal'}`}>EN</a>
       <span style="color:var(--border)">|</span>
       <a href="?lang=pt" style={`color:${lang === 'pt' ? 'var(--gold)' : 'var(--muted)'};text-decoration:none;font-weight:${lang === 'pt' ? 'bold' : 'normal'}`}>PT</a>
@@ -34,16 +33,22 @@ const t    = useTranslations(lang);
 
     <div style="display:flex; align-items:center; gap:1rem;">
       {user ? (
-        <>
-          <span style="font-size:0.82rem; color:var(--muted);">
-            {t('hello')}, <strong style="color:var(--cream);">{user.nome}</strong>
-          </span>
-          <a href="/logout" style="font-size:0.82rem; color:var(--muted); text-decoration:none; border:1px solid rgba(255,255,255,0.12); border-radius:6px; padding:4px 12px;">
+        <div style="display:flex; align-items:center; gap:1rem;">
+          {user.role === 'admin' ? (
+            <a href="/admin" class="btn-primary" style="padding: 6px 16px; font-size: 0.9rem; border-radius: 6px;">
+              📊 {t('admin')}
+            </a>
+          ) : (
+            <span style="font-size:0.9rem; color:var(--muted);">
+              {t('hello')}, <strong style="color:var(--cream);">{user.nome}</strong>
+            </span>
+          )}
+          <a href="/logout" style="font-size:0.9rem; color:var(--muted); text-decoration:none; border:1px solid rgba(255,255,255,0.12); border-radius:6px; padding:4px 12px;">
             {t('logout')}
           </a>
-        </>
+        </div>
       ) : (
-        <a href={`/login?lang=${lang}`} style="font-size:0.85rem; color:var(--cream); text-decoration:none; border:1px solid rgba(201,168,76,0.4); border-radius:6px; padding:6px 16px;">
+        <a href={`/login?lang=${lang}`} style="font-size:0.95rem; color:var(--cream); text-decoration:none; border:1px solid rgba(201,168,76,0.4); border-radius:6px; padding:6px 16px;">
           {t('login')}
         </a>
       )}
@@ -60,10 +65,105 @@ const t    = useTranslations(lang);
   </div>
 </header>
 
+<!-- CART DRAWER -->
+<div id="cart-drawer-overlay" style="position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:2000; display:none; opacity:0; transition:opacity 0.3s ease;"></div>
+<div id="cart-drawer" style="position:fixed; right:-400px; top:0; bottom:0; width:100%; max-width:400px; background:var(--bg-dark); border-left:1px solid var(--border); z-index:2001; transition:right 0.3s cubic-bezier(0.16, 1, 0.3, 1); padding:2rem; display:flex; flex-direction:column;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2.5rem;">
+    <h2 style="font-family:'Cormorant Garamond',serif; font-size:1.8rem; color:var(--cream); font-weight:300;">{t('cart')}</h2>
+    <button id="cart-close-btn" style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.5rem;">&times;</button>
+  </div>
 
-<script>
+  <div id="cart-items" style="flex:1; overflow-y:auto; margin-bottom:2rem; display:flex; flex-direction:column; gap:1.5rem;">
+    <!-- Items dynamically injected -->
+  </div>
+
+  <div style="border-top:1px solid var(--border); padding-top:1.5rem;">
+    <div style="display:flex; justify-content:space-between; margin-bottom:1.5rem; font-size:1.1rem;">
+      <span style="color:var(--muted);">{t('total')}</span>
+      <span id="cart-total" style="color:var(--gold); font-weight:600;">$0.00</span>
+    </div>
+    <a href="/api/checkout" id="checkout-btn" class="btn-primary" style="width:100%; justify-content:center; padding:12px;">
+      {t('checkout')}
+    </a>
+  </div>
+</div>
+
+
+<script define:vars={{ emptyCartMsg: t('empty_cart') }}>
 const header = document.getElementById('site-header');
+const openBtn = document.getElementById('cart-open-btn');
+const closeBtn = document.getElementById('cart-close-btn');
+const overlay = document.getElementById('cart-drawer-overlay');
+const drawer = document.getElementById('cart-drawer');
+const itemsContainer = document.getElementById('cart-items');
+const totalEl = document.getElementById('cart-total');
+const countEl = document.getElementById('cart-count');
+
 window.addEventListener('scroll', () => {
   header?.classList.toggle('scrolled', window.scrollY > 60);
 });
+
+async function refreshCart() {
+  const res = await fetch('/api/cart');
+  const data = await res.json();
+  
+  if (countEl) {
+    countEl.textContent = data.count;
+    countEl.classList.toggle('show', data.count > 0);
+  }
+
+  if (itemsContainer) {
+    if (data.items.length === 0) {
+      itemsContainer.innerHTML = `<p style="color:var(--muted); text-align:center; margin-top:3rem;">${emptyCartMsg}</p>`;
+      totalEl.textContent = '$0.00';
+    } else {
+      itemsContainer.innerHTML = data.items.map(item => `
+        <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start;">
+          <div>
+            <div style="color:var(--cream); font-size:1.05rem; margin-bottom:4px;">${item.titulo}</div>
+            <div style="color:var(--muted); font-size:0.85rem;">${item.prof}</div>
+          </div>
+          <div style="text-align:right;">
+             <div style="color:var(--gold); font-size:1rem; margin-bottom:8px;">$${item.preco.toFixed(2)}</div>
+             <button onclick="removeFromCart('${item.id}')" style="background:none; border:none; color:var(--muted); font-size:0.8rem; cursor:pointer; padding:0; text-decoration:underline;">Remover</button>
+          </div>
+        </div>
+      `).join('');
+      
+      const total = data.items.reduce((acc, i) => acc + i.preco, 0);
+      totalEl.textContent = `$${total.toFixed(2)}`;
+    }
+  }
+}
+
+async function removeFromCart(id) {
+  const fd = new FormData();
+  fd.append('action', 'remove');
+  fd.append('video_id', id);
+  await fetch('/api/cart', { method: 'POST', body: fd });
+  refreshCart();
+}
+window.removeFromCart = removeFromCart;
+
+function openCart() {
+  refreshCart();
+  overlay.style.display = 'block';
+  setTimeout(() => {
+    overlay.style.opacity = '1';
+    drawer.style.right = '0';
+  }, 10);
+}
+
+function closeCart() {
+  overlay.style.opacity = '0';
+  drawer.style.right = '-400px';
+  setTimeout(() => { overlay.style.display = 'none'; }, 300);
+}
+
+openBtn?.addEventListener('click', openCart);
+closeBtn?.addEventListener('click', closeCart);
+overlay?.addEventListener('click', closeCart);
+
+// Initial load for count
+refreshCart();
 </script>

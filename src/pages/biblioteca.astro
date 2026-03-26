@@ -1,0 +1,99 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import { requireLogin } from '../lib/auth';
+import { createAdminClient, DB_ID, COLLECTIONS } from '../lib/appwrite';
+import { Query } from 'node-appwrite';
+import { getLang, useTranslations } from '../lib/i18n';
+
+const cfEnv = Astro.locals.runtime?.env || {};
+const dynamicDbId = cfEnv.APPWRITE_DATABASE_ID || DB_ID;
+const user = await requireLogin(Astro.cookies, '/', cfEnv);
+const lang = getLang(Astro.cookies, Astro.url);
+const t    = useTranslations(lang);
+
+const { databases } = await createAdminClient(cfEnv);
+
+// 1. Buscar todas as compras pagas do usuário
+let videos: any[] = [];
+let errorMsg = '';
+
+try {
+  const comprasRes = await databases.listDocuments(dynamicDbId, COLLECTIONS.COMPRAS, [
+    Query.equal('usuario_id', user.id),
+    Query.equal('status', 'pago'),
+    Query.limit(100)
+  ]);
+
+  if (comprasRes.documents.length > 0) {
+    const videoIds = comprasRes.documents.map(c => c.video_id);
+    
+    // 2. Buscar detalhes dos vídeos
+    const videosRes = await databases.listDocuments(dynamicDbId, COLLECTIONS.VIDEOS, [
+      Query.equal('$id', videoIds),
+      Query.limit(100)
+    ]);
+    videos = videosRes.documents;
+  }
+} catch (e: any) {
+  errorMsg = e.message;
+}
+---
+
+<MainLayout title={t('library')} user={user}>
+  <div style="min-height:90vh; padding: 120px 2rem 5rem;">
+    <div class="reveal">
+      <div class="section-label">{t('welcome_back')}, {user.nome}</div>
+      <h1 class="section-title">{t('library')}</h1>
+      <p class="section-sub">
+        {lang === 'pt' ? 'Assista às aulas que você já adquiriu e continue sua jornada na dança.' : 'Watch the classes you have already purchased and continue your dance journey.'}
+      </p>
+    </div>
+
+    {errorMsg && <div class="alert alert-error">{errorMsg}</div>}
+
+    <div class="professors-grid" style="margin-top:4rem;">
+      {videos.length === 0 ? (
+        <div style="grid-column: 1/-1; text-align:center; padding:5rem 2rem; border:1px dashed var(--border); border-radius:12px;">
+          <p style="color:var(--muted); margin-bottom:1.5rem;">
+            {lang === 'pt' ? 'Você ainda não possui aulas na sua biblioteca.' : 'You don\'t have any classes in your library yet.'}
+          </p>
+          <a href="/" class="btn-primary" style="display:inline-flex;">{t('catalog')}</a>
+        </div>
+      ) : (
+        videos.map((v) => (
+          <div class="video-card reveal">
+             <div class="video-card-inner" style="border:1px solid var(--border); background:rgba(255,255,255,0.02); border-radius:12px; overflow:hidden; transition: transform 0.3s ease;">
+                <div style="aspect-ratio:16/9; background:#000; position:relative; display:flex; align-items:center; justify-content:center;">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="var(--gold)" style="filter:drop-shadow(0 0 10px rgba(201,168,76,0.3))"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                </div>
+                <div style="padding:1.5rem;">
+                  <h3 style="font-family:'Cormorant Garamond',serif; font-size:1.4rem; color:var(--cream); margin-bottom:0.5rem;">{v.titulo}</h3>
+                  <p style="font-size:0.85rem; color:var(--muted); margin-bottom:1.2rem; line-height:1.5; height:2.6rem; overflow:hidden;">{v.descricao}</p>
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:0.75rem; color:var(--gold); border:1px solid rgba(201,168,76,0.2); padding:2px 8px; border-radius:4px;">{v.duracao}</span>
+                    <a href={`/watch/${v.$id}?lang=${lang}`} class="btn-primary" style="padding:6px 16px; font-size:0.8rem;">{t('watch')}</a>
+                  </div>
+                </div>
+             </div>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+</MainLayout>
+
+<style>
+  .video-card-inner:hover {
+    transform: translateY(-5px);
+    border-color: var(--gold);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+</style>
+
+<script>
+  const observer = new IntersectionObserver(
+    entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }),
+    { threshold: 0.1 }
+  );
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>

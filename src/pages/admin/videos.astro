@@ -4,8 +4,10 @@ import { requireAdmin } from '../../lib/auth';
 import { createAdminClient, DB_ID, COLLECTIONS } from '../../lib/appwrite';
 import { Query, ID } from 'node-appwrite';
 
-const user = await requireAdmin(Astro.cookies);
-const { databases } = createAdminClient();
+const cfEnv = Astro.locals.runtime?.env || {};
+const dynamicDbId = cfEnv.APPWRITE_DATABASE_ID || DB_ID;
+const user = await requireAdmin(Astro.cookies, cfEnv);
+const { databases } = await createAdminClient(cfEnv);
 
 let msg = '';
 
@@ -27,13 +29,13 @@ if (Astro.request.method === 'POST') {
   });
 
   if (action === 'add') {
-    await databases.createDocument(DB_ID, COLLECTIONS.VIDEOS, ID.unique(), getData());
+    await databases.createDocument(dynamicDbId, COLLECTIONS.VIDEOS, ID.unique(), getData());
     msg = 'Vídeo adicionado!';
   } else if (action === 'edit') {
-    await databases.updateDocument(DB_ID, COLLECTIONS.VIDEOS, form.get('id')!.toString(), getData());
+    await databases.updateDocument(dynamicDbId, COLLECTIONS.VIDEOS, form.get('id')!.toString(), getData());
     msg = 'Vídeo atualizado!';
   } else if (action === 'delete') {
-    await databases.deleteDocument(DB_ID, COLLECTIONS.VIDEOS, form.get('id')!.toString());
+    await databases.deleteDocument(dynamicDbId, COLLECTIONS.VIDEOS, form.get('id')!.toString());
     msg = 'Vídeo removido.';
   }
   return Astro.redirect('/admin/videos?ok=1');
@@ -41,14 +43,14 @@ if (Astro.request.method === 'POST') {
 
 if (Astro.url.searchParams.get('ok')) msg = 'Operação realizada com sucesso!';
 
-const professores = (await databases.listDocuments(DB_ID, COLLECTIONS.PROFESSORES, [Query.orderAsc('nome'), Query.limit(100)])).documents;
+const professores = (await databases.listDocuments(dynamicDbId, COLLECTIONS.PROFESSORES, [Query.orderAsc('nome'), Query.limit(100)])).documents;
 const filtroProf  = Astro.url.searchParams.get('prof') ?? '';
 const filters     = filtroProf ? [Query.equal('professor_id', filtroProf)] : [];
-const videos      = (await databases.listDocuments(DB_ID, COLLECTIONS.VIDEOS, [...filters, Query.orderAsc('$createdAt'), Query.limit(200)])).documents;
+const videos      = (await databases.listDocuments(dynamicDbId, COLLECTIONS.VIDEOS, [...filters, Query.orderAsc('$createdAt'), Query.limit(200)])).documents;
 
 let editVideo: any = null;
 const editId = Astro.url.searchParams.get('edit');
-if (editId) editVideo = await databases.getDocument(DB_ID, COLLECTIONS.VIDEOS, editId);
+if (editId) editVideo = await databases.getDocument(dynamicDbId, COLLECTIONS.VIDEOS, editId);
 ---
 <AdminLayout title={editVideo ? 'Editar Vídeo' : 'Vídeos'} user={user} currentPage="/admin/videos">
   {msg && <div class="alert alert-success">✅ {msg}</div>}

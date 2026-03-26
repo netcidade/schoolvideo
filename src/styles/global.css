@@ -9,6 +9,10 @@
 @tailwind utilities;
 
 @layer base {
+html {
+    font-size: 112.5%; /* Aumenta a base de 16px para 18px */
+    scroll-behavior: smooth;
+  }
   :root {
     --dark:    #0B0B0F;
     --surface: #111116;
@@ -56,7 +60,7 @@
 
   .nav-links { @apply flex list-none gap-8; }
   .nav-links a {
-    @apply text-sm no-underline transition-all duration-200;
+    @apply text-base no-underline transition-all duration-200;
     color: var(--muted);
     letter-spacing: 0.08em;
   }

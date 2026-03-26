@@ -46,7 +46,8 @@ try {
 // Lógica de Embed (YouTube / Vimeo)
 let embedUrl = '';
 if (video?.video_url) {
-  const url = video.video_url;
+  const url = video.video_url.toString().trim();
+  
   if (url.includes('youtube.com/watch?v=')) {
     embedUrl = url.replace('watch?v=', 'embed/');
   } else if (url.includes('youtu.be/')) {
@@ -55,6 +56,9 @@ if (video?.video_url) {
   } else if (url.includes('vimeo.com/')) {
     const id = url.split('/').pop()?.split('?')[0];
     embedUrl = `https://player.vimeo.com/video/${id}?badge=0&autopause=0&player_id=0&app_id=58479`;
+  } else if (/^\d+$/.test(url)) {
+    // Se for APENAS números, assume que é um ID do Vimeo
+    embedUrl = `https://player.vimeo.com/video/${url}?badge=0&autopause=0&player_id=0&app_id=58479`;
   } else {
     // Se for uma URL direta ou desconhecida, tenta usar como está
     embedUrl = url;
